@@ -7,19 +7,16 @@ namespace SimpleTdo.DataAccess
     {
         private readonly IConfiguration _configuration;
 
-        public UsersDbContext(IConfiguration configuration, DbContextOptions<UsersDbContext> options) : base(options)
+        public UsersDbContext(IConfiguration configuration)
         {
             _configuration = configuration;
         }
 
-        public DbSet<User> Users { get; set; }
+        public DbSet<User> Users => Set<User>();
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            if (!optionsBuilder.IsConfigured)
-            {
-                optionsBuilder.UseNpgsql(_configuration.GetConnectionString("Database"));
-            }
+            optionsBuilder.UseNpgsql(_configuration.GetConnectionString("Database"));
         }
     }
 }

@@ -1,91 +1,92 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity.Data;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SimpleTdo.DataAccess;
-using SimpleTdo.Models;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using SimpleTdo.Contracts;
-using BCrypt.Net;
-
+using SimpleTdo.Models;
+using Microsoft.AspNetCore.Authorization;
+using System.IdentityModel.Tokens.Jwt;
+using System.Text;
+using System.Security.Claims;
+using SimpleTdo.Check;
 
 namespace SimpleTdo.Controllers
 {
-    [AllowAnonymous]
     [ApiController]
     [Route("[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly UsersDbContext _dbContext;
+        private readonly UsersDbContext _context;
         private readonly IConfiguration _configuration;
 
         public AuthController(UsersDbContext context, IConfiguration configuration)
         {
-            _dbContext = context;
+            _context = context;
             _configuration = configuration;
         }
 
-        [AllowAnonymous]
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request) 
+        {
+            string err = await RegisterCheck.CheckRegister(request, _context);
+            if (err != null)
+                return BadRequest(err);
+
+            var user = new User
+            {
+                Username = request.Username,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
+            };
+
+            await _context.AddAsync(user);
+            await _context.SaveChangesAsync();
+
+            return Ok();
+        }
+
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            var user = await _dbContext.Users.SingleOrDefaultAsync(u => u.Username == request.Username);
-            if (user == null || !VerifyPasswordHash(request.Password, user.PasswordHash))
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
-                return Unauthorized("Invalid credentials");
+                return Unauthorized();
             }
 
-            var token = GenerateJwtToken(user);
-            return Ok(new { Token = token });
-        }
-
-        [AllowAnonymous]
-        [HttpPost("register")]
-        public async Task<IActionResult> Register(SimpleTdo.Contracts.RegisterRequest request)
-        {
-            if (await _dbContext.Users.AnyAsync(u => u.Username == request.Username))
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]);
+            var tokenDescriptor = new SecurityTokenDescriptor
             {
-                return Conflict("Пользователь с таким именем уже существует");
-            }
-
-            var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-            var newUser = new User
-            {
-                Username = request.Username,
-                PasswordHash = passwordHash,
-                Role = "User"
+                Subject = new ClaimsIdentity(new Claim[]
+                {
+            new Claim(ClaimTypes.Name, user.Username)
+                }),
+                Expires = DateTime.UtcNow.AddDays(7),
+                Issuer = _configuration["Jwt:Issuer"],
+                Audience = _configuration["Jwt:Audience"],
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 
-            await _dbContext.Users.AddAsync(newUser);
-            await _dbContext.SaveChangesAsync();
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            var tokenString = tokenHandler.WriteToken(token);
 
-            return Ok("Пользователь успешно создан");
+            Response.Cookies.Append("jwt", tokenString, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = false,
+                SameSite = SameSiteMode.None
+            });
+
+            return Ok(new { Token = tokenString });
         }
 
-        private bool VerifyPasswordHash(string password, string storedHash)
+        [Authorize]
+        [HttpPost("logout")]
+        public IActionResult Logout() 
         {
-            return BCrypt.Net.BCrypt.Verify(password, storedHash);
-        }
-
-        private string GenerateJwtToken(User user)
-        {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
-                claims: new[] { new Claim(ClaimTypes.Name, user.Username) },
-                expires: DateTime.UtcNow.AddHours(1),
-                signingCredentials: credentials
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            Response.Cookies.Delete("jwt");
+            return Ok();
         }
     }
-
-    public record LoginRequest(string Username, string Password);
 }

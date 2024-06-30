@@ -118,3 +118,4 @@ C:\Users\kaime\source\repos\SimpleTdo\SimpleTdo\bin\Debug\net8.0\Microsoft.Ident
 C:\Users\kaime\source\repos\SimpleTdo\SimpleTdo\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
 C:\Users\kaime\source\repos\SimpleTdo\SimpleTdo\bin\Debug\net8.0\DevOne.Security.Cryptography.BCrypt.dll
 C:\Users\kaime\source\repos\SimpleTdo\SimpleTdo\bin\Debug\net8.0\BCrypt.Net-Core.dll
+C:\Users\kaime\source\repos\SimpleTdo\SimpleTdo\obj\Debug\net8.0\SimpleTdo.sourcelink.json

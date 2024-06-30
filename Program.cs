@@ -1,39 +1,3 @@
-//using SimpleTdo.DataAccess;
-
-//var builder = WebApplication.CreateBuilder(args);
-
-
-//builder.Services.AddControllers();
-//builder.Services.AddSwaggerGen();
-//builder.Services.AddScoped<NotesDbContext>();
-
-//builder.Services.AddCors(options => 
-//{
-//    options.AddDefaultPolicy(policy =>
-//    {
-//        policy.AllowAnyHeader();
-//        policy.AllowAnyMethod();
-//        policy.AllowAnyOrigin();
-//    });
-//});
-
-//var app = builder.Build();
-
-//using var scope = app.Services.CreateScope();
-//await using var dbContext = scope.ServiceProvider.GetRequiredService<NotesDbContext>();
-//await dbContext.Database.EnsureCreatedAsync();
-
-//if (app.Environment.IsDevelopment())
-//{
-//    app.UseSwagger();
-//    app.UseSwaggerUI();
-//}
-
-//app.UseCors();
-//app.MapControllers();
-
-//app.Run();
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -43,15 +7,14 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "SimpleTdo API", Version = "v1" });
+
+    // Добавляем секцию авторизации в Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Description = "Введите JWT токен следующим образом: Bearer {токен}",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -69,13 +32,16 @@ builder.Services.AddSwaggerGen(c =>
                     Id = "Bearer"
                 }
             },
-            new string[] { }
+            Array.Empty<string>()
         }
     });
 });
 
-var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
+builder.Services.AddControllers();
+builder.Services.AddScoped<NotesDbContext>();
+builder.Services.AddScoped<UsersDbContext>();
+
+var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"]);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -84,59 +50,56 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
         ValidateAudience = true,
+        ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidAudience = jwtSettings["Audience"],
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(key),
-        ClockSkew = TimeSpan.Zero
+        ClockSkew = TimeSpan.Zero // Optional: reduce the allowed clock skew
     };
 });
 
 builder.Services.AddAuthorization();
 
-builder.Services.AddDbContext<NotesDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Database")));
-
-builder.Services.AddDbContext<UsersDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Database")));
-
-builder.Services.AddScoped<NotesDbContext>();
-builder.Services.AddScoped<UsersDbContext>();
-
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyHeader();
-        policy.AllowAnyMethod();
-        policy.AllowAnyOrigin();
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Важно для работы с куки
     });
 });
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var notesDbContext = scope.ServiceProvider.GetRequiredService<NotesDbContext>();
-    await notesDbContext.Database.EnsureCreatedAsync();
-    var usersDbContext = scope.ServiceProvider.GetRequiredService<UsersDbContext>();
-    await usersDbContext.Database.EnsureCreatedAsync();
-}
+using var scope = app.Services.CreateScope();
+await using var dbContext = scope.ServiceProvider.GetRequiredService<NotesDbContext>();
+await dbContext.Database.EnsureCreatedAsync();
+
+using var userScope = app.Services.CreateScope();
+await using var usersDbContext = userScope.ServiceProvider.GetRequiredService<UsersDbContext>();
+await usersDbContext.Database.EnsureCreatedAsync();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "SimpleTdo API v1");
+    });
 }
 
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();
