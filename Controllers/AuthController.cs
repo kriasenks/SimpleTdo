@@ -41,7 +41,7 @@ namespace SimpleTdo.Controllers
             await _context.AddAsync(user);
             await _context.SaveChangesAsync();
 
-            return Ok();
+            return Ok("Пользователь создан");
         }
 
 
@@ -58,9 +58,10 @@ namespace SimpleTdo.Controllers
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
-                {
-            new Claim(ClaimTypes.Name, user.Username)
-                }),
+            {
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()) // Добавляем идентификатор пользователя в токен
+            }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 Issuer = _configuration["Jwt:Issuer"],
                 Audience = _configuration["Jwt:Audience"],

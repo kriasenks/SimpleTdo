@@ -14,10 +14,20 @@ namespace SimpleTdo.DataAccess
         }
 
         public DbSet<Note> Notes => Set<Note>();
+        public DbSet<User> Users => Set<User>(); // Добавляем пользователей в NotesDbContext
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseNpgsql(_configuration.GetConnectionString("Database"));
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<Note>()
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(n => n.UserId);
         }
     }
 }

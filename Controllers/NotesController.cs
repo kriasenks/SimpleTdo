@@ -5,6 +5,7 @@ using SimpleTdo.Contracts;
 using SimpleTdo.DataAccess;
 using SimpleTdo.Models;
 using System.Linq.Expressions;
+using System.Security.Claims;
 
 
 namespace SimpleTdo.Controllers
@@ -14,29 +15,42 @@ namespace SimpleTdo.Controllers
     public class NotesController : ControllerBase
     {
         private readonly NotesDbContext _dbContext;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public NotesController(NotesDbContext dbContext)
+        public NotesController(NotesDbContext dbContext, IHttpContextAccessor httpContextAccessor)
         {
             _dbContext = dbContext;
+            _httpContextAccessor = httpContextAccessor;
         }
+
+        private Guid GetUserId()
+        {
+            var userIdClaim = _httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier);
+            return Guid.Parse(userIdClaim.Value);
+        }
+
         [Authorize]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateNoteRequest request, CancellationToken ct)
         {
-            var note = new Note(request.Title, request.Description);
+            var userId = GetUserId();
+            var note = new Note(request.Title, request.Description, userId);
 
             await _dbContext.Notes.AddAsync(note, ct);
             await _dbContext.SaveChangesAsync(ct);
 
             return Ok();
         }
+
         [Authorize]
         [HttpGet]
         public async Task<IActionResult> Get([FromQuery] GetNotesRequest request, CancellationToken ct)
         {
+            var userId = GetUserId();
             var notesQuery = _dbContext.Notes
-                .Where(n => string.IsNullOrWhiteSpace(request.search) ||
-                            n.Title.ToLower().Contains(request.search.ToLower()));
+                .Where(n => n.UserId == userId &&
+                            (string.IsNullOrWhiteSpace(request.search) ||
+                             n.Title.ToLower().Contains(request.search.ToLower())));
 
             Expression<Func<Note, object>> selectorKey = request.sortItem?.ToLower() switch
             {

@@ -1,12 +1,19 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SimpleTdo.DataAccess;
+using System;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Добавляем IHttpContextAccessor в сервисы
+builder.Services.AddHttpContextAccessor();
+
+// Добавляем сервисы для Swagger
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "SimpleTdo API", Version = "v1" });
@@ -37,12 +44,15 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// Добавляем сервисы для работы с контроллерами и базами данных
 builder.Services.AddControllers();
 builder.Services.AddScoped<NotesDbContext>();
 builder.Services.AddScoped<UsersDbContext>();
 
+// Получаем ключ для подписи JWT из конфигурации
 var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"]);
 
+// Настраиваем аутентификацию и авторизацию
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -65,29 +75,30 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
-
+// Добавляем политику CORS для разрешения запросов с определённого источника
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.AllowAnyOrigin() /*WithOrigins("http://localhost:5173", "https://0d19-194-113-94-71.ngrok-free.app")*/
               .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials(); // Важно для работы с куки
+              .AllowAnyMethod();
+              //.AllowCredentials(); // Важно для работы с куки
     });
 });
 
 var app = builder.Build();
 
+// Создаём и применяем миграции баз данных
 using var scope = app.Services.CreateScope();
 await using var dbContext = scope.ServiceProvider.GetRequiredService<NotesDbContext>();
-await dbContext.Database.EnsureCreatedAsync();
+await dbContext.Database.MigrateAsync();
 
 using var userScope = app.Services.CreateScope();
 await using var usersDbContext = userScope.ServiceProvider.GetRequiredService<UsersDbContext>();
-await usersDbContext.Database.EnsureCreatedAsync();
+await usersDbContext.Database.MigrateAsync();
 
+// Добавляем Swagger в разработке
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -97,9 +108,11 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Настройка промежуточных компонентов
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+// Запуск приложения
 app.Run();
