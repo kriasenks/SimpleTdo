@@ -80,10 +80,10 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyOrigin() /*WithOrigins("http://localhost:5173", "https://0d19-194-113-94-71.ngrok-free.app")*/
+        policy.WithOrigins("http://localhost:5173")
               .AllowAnyHeader()
-              .AllowAnyMethod();
-              //.AllowCredentials(); // Важно для работы с куки
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 

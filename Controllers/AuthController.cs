@@ -26,7 +26,7 @@ namespace SimpleTdo.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest request) 
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             string err = await RegisterCheck.CheckRegister(request, _context);
             if (err != null)
@@ -44,11 +44,9 @@ namespace SimpleTdo.Controllers
             return Ok("Пользователь создан");
         }
 
-
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 return BadRequest("Неправильно введено имя и(или) пароль");
@@ -58,10 +56,10 @@ namespace SimpleTdo.Controllers
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
-            {
+                {
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()) // Добавляем идентификатор пользователя в токен
-            }),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
+                }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 Issuer = _configuration["Jwt:Issuer"],
                 Audience = _configuration["Jwt:Audience"],
@@ -73,8 +71,8 @@ namespace SimpleTdo.Controllers
 
             Response.Cookies.Append("jwt", tokenString, new CookieOptions
             {
-                HttpOnly = true,
-                Secure = false,
+                HttpOnly = false,
+                Secure = true,
                 SameSite = SameSiteMode.None
             });
 
@@ -83,7 +81,7 @@ namespace SimpleTdo.Controllers
 
         [Authorize]
         [HttpPost("logout")]
-        public IActionResult Logout() 
+        public IActionResult Logout()
         {
             Response.Cookies.Delete("jwt");
             return Ok();
