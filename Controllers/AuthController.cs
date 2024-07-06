@@ -79,12 +79,16 @@ namespace SimpleTdo.Controllers
             return Ok(new { Token = tokenString });
         }
 
-        [Authorize]
+        //[Authorize]
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            Response.Cookies.Delete("jwt");
-            return Ok();
+            try 
+            {
+                Response.Cookies.Delete("jwt");
+                return Ok("Выход произошёл успешно");
+            } 
+            catch(Exception ex) { return BadRequest(ex); }
         }
     }
 }
