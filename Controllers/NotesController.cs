@@ -69,5 +69,20 @@ namespace SimpleTdo.Controllers
 
             return Ok(new GetNotesResponse(noteDtos));
         }
+
+        [Authorize]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            var note = await _dbContext.Notes.FirstOrDefaultAsync(n => n.Id == id);
+            if (note == null)
+            {
+                return NotFound();
+            }
+
+            _dbContext.Notes.Remove(note);
+            await _dbContext.SaveChangesAsync();
+            return Ok("Заметка успешно удалена");
+        }
     }
 }
