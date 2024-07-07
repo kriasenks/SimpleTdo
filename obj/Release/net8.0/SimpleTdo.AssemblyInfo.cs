@@ -13,7 +13,7 @@ using System.Reflection;
 
 [assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("18875e66-bc5a-410d-b489-d96fae7fa648")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("SimpleTdo")]
-[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
 [assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bb7fd536a30c543c722b7f4c22eecc46f58650d9")]
 [assembly: System.Reflection.AssemblyProductAttribute("SimpleTdo")]
